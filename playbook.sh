@@ -82,12 +82,11 @@ echo "#TODO: determine how to enable sharing on Yosemite"
 #echo "---> Enable firewall"
 #sudo defaults write /Library/Preferences/com.apple.alf globalstate -int 1 #2>/dev/null
 
-#echo "---> Set screen lock to 1 minute"
-#defaults -currentHost write com.apple.screensaver askForPassword -int 1 #2>/dev/null
-#defaults -currentHost write com.apple.screensaver askForPasswordDelay -int 60 #2>/dev/null
+echo "---> Disble screen lock"
+defaults -currentHost write com.apple.screensaver askForPassword -int 0
 
-#echo "---> Updating system software"
-#[[ -n $WITH_SOUP ]] && sudo softwareupdate --install --all > /dev/null
+echo "---> Updating system software"
+sudo softwareupdate --install --all
 
 #if [[ -n $NEW_HOSTNAME ]]; then
 #  echo "---> Set computer name (as done via System Preferences → Sharing)"
@@ -175,8 +174,8 @@ defaults write com.apple.Safari com.apple.Safari.ContentPageGroupIdentifier.WebK
 
 echo "---> Homebrew currently broken in Yosemite :("
 
-echo "---> Install homebrew"
-ruby -e "$(curl -fsSL https://raw.github.com/mxcl/homebrew/go/install)" #2>/dev/null
+echo "---> Installing homebrew"
+ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 
 # Install more recent versions of some OS X tools
 brew tap homebrew/dupes

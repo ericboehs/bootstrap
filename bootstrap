@@ -1,0 +1,128 @@
+#! /usr/bin/env bash
+
+# Idempotent bootstrap script to stand up a new development Mac
+#
+# Usage: bootstrap <apple id> <apple id pass>
+#
+# Note: If you prefix a bash command with a space it will not be saved to your
+# command history.
+#
+# Subsequent runs will ensure packages are up-to-date.
+
+set -e
+
+COMPUTER_NAME='Falcon-9'
+
+PATH="/usr/local/bin:$PATH"
+
+add_assitive_device() {
+  sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "INSERT OR REPLACE INTO access VALUES('kTCCServiceAccessibility','$1',1,1,1,NULL);"
+}
+
+remove_assitive_device() {
+  sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "DELETE FROM access WHERE client='$1';"
+}
+
+install_app() {
+  if [ ! -x "/Applications/$2.app" ]; then
+    echo "-----> Installing $2 from Mac App Store: http://itunes.apple.com/app/$1"
+    add_assitive_device /usr/libexec/sshd-keygen-wrapper
+    osascript install_mas_app.scpt $APPLE_ID_USER $APPLE_ID_PASS $1
+    remove_assitive_device /usr/libexec/sshd-keygen-wrapper
+    sudo killall "App Store" >/dev/null 2>&1 || echo -n
+  fi
+}
+
+brew_install() {
+  [[ -z $(brew ls --versions $1) ]] && brew install $1
+}
+
+brew_tap() {
+  if [[ -z $(brew tap | grep -E "^$1$") ]]; then
+    echo "-----> Tapping $1"
+    brew tap $1
+  fi
+}
+
+. ~/.profile
+
+if [ -n "$APPLE_ID_USER_REMOTE" ] || [ -n "$APPLE_ID_PASS_REMOTE" ]; then
+  APPLE_ID_USER=$APPLE_ID_USER_REMOTE
+  APPLE_ID_PASS=$APPLE_ID_PASS_REMOTE
+fi
+
+if [ -z "$APPLE_ID_USER" ] || [ -z "$APPLE_ID_PASS" ]; then
+  echo "Apple credentials missing. Exiting..."
+  exit 1
+fi
+
+if [[ -z $(sudo grep "$USER.*NOPASSWD" /etc/sudoers) ]]; then
+  echo "-----> Adding $USER to NOPASSWD sudoers"
+  echo "$USER ALL=(ALL) NOPASSWD: ALL" | sudo tee -a /etc/sudoers > /dev/null
+fi
+
+echo "-----> Setting computer name"
+sudo scutil --set ComputerName $COMPUTER_NAME
+sudo scutil --set HostName $COMPUTER_NAME
+sudo scutil --set LocalHostName $COMPUTER_NAME
+sudo defaults write /Library/Preferences/SystemConfiguration/com.apple.smb.server NetBIOSName -string $COMPUTER_NAME
+
+install_app id497799835 Xcode
+# install_app id726099620 Bee
+# install_app id413857545 Divvy
+# install_app id623795237 "Ulysses III"
+# install_app id880001334 "Reeder 2"
+# install_app id411643860 DaisyDisk
+# install_app id458034879 Dash
+# install_app id432027450 RadarScope
+
+echo "-----> Accepting Xcode Licenses"
+./xcode_agree.sh 1> /dev/null
+
+echo "-----> Create ~/Code directory"
+mkdir -p ~/Code
+
+echo "-----> Disable screen lock"
+defaults -currentHost write com.apple.screensaver askForPassword -int 0
+
+echo "-----> Updating system software"
+sudo softwareupdate --install --all 1> /dev/null
+
+if [ ! -x /usr/local/bin/brew ]; then
+  echo "-----> Installing homebrew"
+  ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+else
+  brew update > /dev/null
+  brew upgrade
+fi
+
+# Install more recent versions of some OS X tools
+brew_tap homebrew/dupes
+
+echo "-----> Install other useful binaries"
+
+brew_install bash                       # Bash 4
+brew_install coreutils                  # GNU core utilities (those that come with OS X are outdated)
+brew_install ctags                      # For indexing files (vim tab completion of methods, classes, variables)
+brew_install findutils                  # GNU `find`, `locate`, `updatedb`, and `xargs`, g-prefixed
+brew_install gcal                       # GNU cal with 3-month view (gcal .)
+brew_install git                        # Distributed version control
+brew_install git-extras                 # Helpful git commands; See https://github.com/visionmedia/git-extras
+brew_install heroku-toolbelt            # Recommened way to install heroku command line
+brew_install htop-osx                   # Better top
+brew_install imagemagick                # Process images (used for carrierwave gem)
+brew_install macvim --override-system-vim --force # Newer, better, faster, stronger vim
+brew_install memcached                  # Good open source memory store for caching
+brew_install node                       # JS V8 engine
+brew_install phantomjs                  # Headless webkit used for testing (with capybara/poltergeist)
+brew_install postgresql --no-python     # Realational Database
+brew_install reattach-to-user-namespace # Reattaches user namespace in tmux  (for pasteboard interaction and ruby motion)
+brew_install redis                      # Key-value store
+brew_install rename                     # Like mv but better (takes regex)
+brew_install ruby                       # Straight up Ruby 2.2. Nothing fancy like rbenv or rvm.
+brew_install the_silver_searcher        # The Silver Searcher - faster than grep or ack
+brew_install tmux                       # Terminal multiplexer (for saving project state and switching between projects)
+brew_install tree                       # ASCII view of directory/file structure
+brew_install watch                      # Repeateadly run a command (clearing output between runs)
+brew_install wget --enable-iri          # wget with IRI support
+brew_install zsh                        # Zsh 5

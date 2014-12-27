@@ -1,0 +1,29 @@
+#! /usr/bin/env bash
+
+# Idempotent bootstrap script to stand up a new development Mac
+#
+# Usage: bootstrap_remote <user@host> [<apple id>] [<apple id pass>]
+#
+# Note: If you prefix a bash command with a space it will not be saved to your
+# command history.
+#
+# Assumes SSH keys are located at ./.ssh/id_rsa*.
+#
+# Subsequent runs will ensure packages are up-to-date.
+#
+# Script is left on remote for system adminstrator's reference.
+
+set -e
+
+if [ ! -z "$1" ]; then
+  # Ensure ssh-copy-id installed locally
+  [[ -z $(brew ls --versions ssh-copy-id) ]] && brew install ssh-copy-id
+
+  echo "-----> Secure copying ssh key and bootstrap script"
+  ssh-copy-id $1 >/dev/null 2>&1
+  scp -q -o "StrictHostKeyChecking no" .ssh/id_rsa.pub .ssh/id_rsa $1:.ssh/
+  scp -q -o "StrictHostKeyChecking no" xcode_agree.sh install_mas_app.scpt bootstrap $1:
+
+  echo "-----> Bootstrap starting"
+  ssh -q -o "StrictHostKeyChecking no" -t $1 APPLE_ID_USER_REMOTE=$2 APPLE_ID_PASS_REMOTE=$3 ./bootstrap
+fi
