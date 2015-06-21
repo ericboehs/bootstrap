@@ -12,8 +12,17 @@
 set -e
 
 COMPUTER_NAME='Falcon-9'
+STRAPPING_SERVER=true
 
 PATH="/usr/local/bin:$PATH"
+
+silently() {
+  $* >/dev/null 2>&1
+}
+
+ignore_error() {
+  $* || echo -n
+}
 
 add_assitive_device() {
   sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "INSERT OR REPLACE INTO access VALUES('kTCCServiceAccessibility','$1',1,1,1,NULL);"
@@ -25,16 +34,23 @@ remove_assitive_device() {
 
 install_app() {
   if [ ! -x "/Applications/$2.app" ]; then
-    echo "-----> Installing $2 from Mac App Store: http://itunes.apple.com/app/$1"
+    echo "-----> Installing $2 from Mac App Store: http://itunes.apple.com/app/$1."
     add_assitive_device /usr/libexec/sshd-keygen-wrapper
     osascript install_mas_app.scpt $APPLE_ID_USER $APPLE_ID_PASS $1
     remove_assitive_device /usr/libexec/sshd-keygen-wrapper
-    sudo killall "App Store" >/dev/null 2>&1 || echo -n
+    silently ignore_error sudo killall "App Store"
+  else
+    echo "-----> Ensuring $2 still installed from Mac App Store: http://itunes.apple.com/app/$1"
   fi
 }
 
+start_service() {
+  ignore_error sudo launchctl load -w $1 2> >(grep -v "Operation already in progress")
+}
+
 brew_install() {
-  [[ -z $(brew ls --versions $1) ]] && brew install $1
+  echo -n "$1 "
+  [[ -n $(brew ls --versions $1) ]] || brew install $1
 }
 
 brew_tap() {
@@ -44,6 +60,7 @@ brew_tap() {
   fi
 }
 
+# Source ~/.profile for APPLE_ID_USER/PASS
 . ~/.profile
 
 if [ -n "$APPLE_ID_USER_REMOTE" ] || [ -n "$APPLE_ID_PASS_REMOTE" ]; then
@@ -61,32 +78,66 @@ if [[ -z $(sudo grep "$USER.*NOPASSWD" /etc/sudoers) ]]; then
   echo "$USER ALL=(ALL) NOPASSWD: ALL" | sudo tee -a /etc/sudoers > /dev/null
 fi
 
-echo "-----> Setting computer name"
+echo "-----> Setting computer name to $COMPTUER_NAME"
 sudo scutil --set ComputerName $COMPUTER_NAME
 sudo scutil --set HostName $COMPUTER_NAME
 sudo scutil --set LocalHostName $COMPUTER_NAME
 sudo defaults write /Library/Preferences/SystemConfiguration/com.apple.smb.server NetBIOSName -string $COMPUTER_NAME
 
+echo "-----> Create ~/Code directory"
+mkdir -p ~/Code
+
+echo "-----> Enabling firewall"
+sudo defaults write /Library/Preferences/com.apple.alf globalstate -int 1
+
+echo "-----> Enabling file sharing (afp), screen sharing (vnc) and remote login (ssh)"
+sudo defaults write /var/db/launchd.db/com.apple.launchd/overrides.plist com.apple.screensharing -dict Disabled -bool false
+start_service /System/Library/LaunchDaemons/com.apple.screensharing.plist
+sudo defaults write /var/db/launchd.db/com.apple.launchd/overrides.plist com.apple.AppleFileServer -dict Disabled -bool false
+start_service /System/Library/LaunchDaemons/com.apple.AppleFileServer.plist
+silently ignore_error sudo systemsetup -setremotelogin on
+
+echo "-----> Turn on system updates"
+sudo defaults write /Library/Preferences/com.apple.commerce AutoUpdate -bool TRUE
+sudo defaults write /Library/Preferences/com.apple.commerce AutoUpdateRestartRequired -bool TRUE
+
+if [ "$STRAPPING_SERVER" = true ] ; then
+  echo "-----> Disabling screen saver and sleepiness"
+  defaults -currentHost write com.apple.screensaver idleTime 0
+  sudo pmset sleep 0
+  sudo pmset displaysleep 0
+  sudo pmset disksleep 0
+  sudo pmset autorestart 1
+  sudo pmset repeat wakeorpoweron MTWRFSU 5:00:00
+
+  echo "-----> Disabling screen lock"
+  defaults -currentHost write com.apple.screensaver askForPassword -int 0
+
+  echo "-----> Disabling IR receiver"
+  sudo defaults write /Library/Preferences/com.apple.driver.AppleIRController DeviceEnabled -bool false
+  echo "-----> Disabling power button from sleeping system"
+  defaults write com.apple.loginwindow PowerButtonSleepsSystem -bool no
+fi
+
+
 install_app id497799835 Xcode
-# install_app id726099620 Bee
-# install_app id413857545 Divvy
-# install_app id623795237 "Ulysses III"
-# install_app id880001334 "Reeder 2"
-# install_app id411643860 DaisyDisk
-# install_app id458034879 Dash
-# install_app id432027450 RadarScope
+install_app id425264550 "Blackmagic Disk Speed Test"
+# if [ "$STRAPPING_SERVER" = true ] ; then
+# else
+  # install_app id726099620 Bee
+  # install_app id413857545 Divvy
+  # install_app id623795237 "Ulysses III"
+  # install_app id880001334 "Reeder 2"
+  # install_app id411643860 DaisyDisk
+  install_app id458034879 Dash
+  # install_app id432027450 RadarScope
+# fi
 
 echo "-----> Accepting Xcode Licenses"
 ./xcode_agree.sh 1> /dev/null
 
-echo "-----> Create ~/Code directory"
-mkdir -p ~/Code
-
-echo "-----> Disable screen lock"
-defaults -currentHost write com.apple.screensaver askForPassword -int 0
-
-echo "-----> Updating system software"
-sudo softwareupdate --install --all 1> /dev/null
+echo -n "-----> Updating system software"
+sudo softwareupdate --install --all 2> >(grep -v "No updates are available") 1> /dev/null
 
 if [ ! -x /usr/local/bin/brew ]; then
   echo "-----> Installing homebrew"
@@ -99,18 +150,17 @@ fi
 # Install more recent versions of some OS X tools
 brew_tap homebrew/dupes
 
-echo "-----> Install other useful binaries"
+echo -n "-----> Install other useful binaries: "
 
-brew_install bash                       # Bash 4
 brew_install coreutils                  # GNU core utilities (those that come with OS X are outdated)
 brew_install ctags                      # For indexing files (vim tab completion of methods, classes, variables)
-brew_install findutils                  # GNU `find`, `locate`, `updatedb`, and `xargs`, g-prefixed
+# brew_install findutils                  # GNU `find`, `locate`, `updatedb`, and `xargs`, g-prefixed
 brew_install gcal                       # GNU cal with 3-month view (gcal .)
 brew_install git                        # Distributed version control
 brew_install git-extras                 # Helpful git commands; See https://github.com/visionmedia/git-extras
 brew_install heroku-toolbelt            # Recommened way to install heroku command line
 brew_install htop-osx                   # Better top
-brew_install imagemagick                # Process images (used for carrierwave gem)
+# brew_install imagemagick                # Process images (used for carrierwave gem)
 brew_install macvim --override-system-vim --force # Newer, better, faster, stronger vim
 brew_install memcached                  # Good open source memory store for caching
 brew_install node                       # JS V8 engine
@@ -124,5 +174,7 @@ brew_install the_silver_searcher        # The Silver Searcher - faster than grep
 brew_install tmux                       # Terminal multiplexer (for saving project state and switching between projects)
 brew_install tree                       # ASCII view of directory/file structure
 brew_install watch                      # Repeateadly run a command (clearing output between runs)
-brew_install wget --enable-iri          # wget with IRI support
 brew_install zsh                        # Zsh 5
+echo
+
+echo "-----> All done. Enjoy your shiny new $COMPUTER_NAME."
