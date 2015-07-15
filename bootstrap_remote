@@ -22,7 +22,7 @@ if [ ! -z "$1" ]; then
   echo "-----> Secure copying ssh key and bootstrap script"
   ssh-copy-id $1 >/dev/null 2>&1
   scp -q -o "StrictHostKeyChecking no" .ssh/id_rsa.pub .ssh/id_rsa $1:.ssh/
-  scp -q -o "StrictHostKeyChecking no" xcode_agree.sh install_mas_app.scpt bootstrap $1:
+  scp -q -o "StrictHostKeyChecking no" xcode_agree.sh install_mas_app.scpt bootstrap log_in_to_icloud.scpt $1:
 
   echo "-----> Bootstrap starting"
   ssh -q -o "StrictHostKeyChecking no" -t $1 APPLE_ID_USER_REMOTE=$2 APPLE_ID_PASS_REMOTE=$3 ./bootstrap
