@@ -9,16 +9,18 @@
 #
 # Subsequent runs will ensure packages are up-to-date.
 
+# Abort this script if any command fails
 set -e
 
 # Set the computer name to
-COMPUTER_NAME='Space-Machine'
+COMPUTER_NAME='E27'
 
 # Toggle to configure server or desktop
 STRAPPING_SERVER=true
 
 PATH="/usr/local/bin:$PATH"
 
+# Some helper functions used throughout the script
 silently() {
   $* >/dev/null 2>&1
 }
@@ -68,9 +70,7 @@ brew_tap() {
   fi
 }
 
-# Source ~/.profile for APPLE_ID_USER/PASS
-. ~/.profile
-
+# Assign apple user/pass from remote variables. (used in conjunction with bootstrap_remote)
 if [ -n "$APPLE_ID_USER_REMOTE" ] || [ -n "$APPLE_ID_PASS_REMOTE" ]; then
   APPLE_ID_USER=$APPLE_ID_USER_REMOTE
   APPLE_ID_PASS=$APPLE_ID_PASS_REMOTE
@@ -81,6 +81,7 @@ if [ -z "$APPLE_ID_USER" ] || [ -z "$APPLE_ID_PASS" ]; then
   exit 1
 fi
 
+# Don't require a password for sudo. Comment this out if you want it to prompt for a password.
 if [[ -z $(sudo grep "$USER.*NOPASSWD" /etc/sudoers) ]]; then
   echo "-----> Adding $USER to NOPASSWD sudoers"
   echo "$USER ALL=(ALL) NOPASSWD: ALL" | sudo tee -a /etc/sudoers > /dev/null
@@ -108,12 +109,12 @@ silently ignore_error sudo systemsetup -setremotelogin on
 echo "-----> Turn on system updates"
 sudo defaults write /Library/Preferences/com.apple.commerce AutoUpdate -bool TRUE
 sudo defaults write /Library/Preferences/com.apple.commerce AutoUpdateRestartRequired -bool TRUE
+defaults write com.apple.SoftwareUpdate ScheduleFrequency -int 1
 
 if [ "$STRAPPING_SERVER" = true ] ; then
   echo "-----> Disabling screen saver and sleepiness"
   defaults -currentHost write com.apple.screensaver idleTime 0
   sudo pmset sleep 0
-  sudo pmset displaysleep 0
   sudo pmset disksleep 0
   sudo pmset autorestart 1
   sudo pmset repeat wakeorpoweron MTWRFSU 5:00:00
@@ -127,78 +128,126 @@ if [ "$STRAPPING_SERVER" = true ] ; then
   defaults write com.apple.loginwindow PowerButtonSleepsSystem -bool no
 fi
 
+#TODO: Make Capslock press Ctrl
+
+echo "-----> Make mouse and keyboard faster"
+defaults write NSGlobalDomain KeyRepeat -int 0
+defaults write NSGlobalDomain com.apple.mouse.scaling -float 9
+defaults write NSGlobalDomain com.apple.trackpad.scaling -int 9
+defaults write NSGlobalDomain com.apple.scrollwheel.scaling -float 3
+
+echo "-----> Restart automatically if the computer freezes"
+sudo systemsetup -setrestartfreeze on
+
+echo "-----> Enable full keyboard access for all controls (in Keyboard pref pane)"
+defaults write NSGlobalDomain AppleKeyboardUIMode -int 3
+
+echo "-----> Use scroll gesture with the Ctrl (^) modifier key to zoom"
+defaults write com.apple.universalaccess closeViewScrollWheelToggle -bool true
+defaults write com.apple.universalaccess HIDScrollZoomModifierMask -int 262144
+
+echo "-----> Customize dock: Automatically hide the Dock, remove delays"
+defaults write com.apple.dock autohide -bool true
+defaults write com.apple.dock autohide-delay -float 0
+defaults write com.apple.dock autohide-time-modifier -float 0
+
+echo "-----> Tweak Finder: Empty trash securely and without prompt, use column view, enable airdrop over ethernet"
+defaults write com.apple.finder FXPreferredViewStyle -string "clmv"
+defaults write com.apple.finder WarnOnEmptyTrash -bool false
+defaults write com.apple.finder EmptyTrashSecurely -bool true
+defaults write com.apple.NetworkBrowser BrowseAllInterfaces -bool true
+
+# Avoid creating .DS_Store files on network volumes
+defaults write com.apple.desktopservices DSDontWriteNetworkStores -bool true
+
+# Disable disk image verification of dmgs
+defaults write com.apple.frameworks.diskimages skip-verify -bool true
+defaults write com.apple.frameworks.diskimages skip-verify-locked -bool true
+defaults write com.apple.frameworks.diskimages skip-verify-remote -bool true
+
+echo "-----> Customize Safari: Add full url in search bar, developer menu, tab highlights each item"
+# Show the full URL in the address bar (note: this still hides the scheme)
+defaults write com.apple.Safari ShowFullURLInSmartSearchField -bool true
+
+# Enable the Develop menu and the Web Inspector in Safari
+defaults write com.apple.Safari IncludeDevelopMenu -bool true
+defaults write com.apple.Safari WebKitDeveloperExtrasEnabledPreferenceKey -bool true
+defaults write com.apple.Safari com.apple.Safari.ContentPageGroupIdentifier.WebKit2DeveloperExtrasEnabled -bool true
+
+# Press Tab to highlight each item on a web page
+defaults write com.apple.Safari WebKitTabToLinksPreferenceKey -bool true
+defaults write com.apple.Safari com.apple.Safari.ContentPageGroupIdentifier.WebKit2TabsToLinks -bool true
+
 echo "-----> Updating system software"
 sudo softwareupdate --install --all 2> >(grep -v "No updates are available") 1> /dev/null
 
+echo "-----> Install xcode"
 install_mas_app id497799835 Xcode
+
+# FIXME: License acceptance doesn't seem to be typing "agree" correctly
+echo "-----> Accepting Xcode Licenses"
+./xcode_agree.sh 1> /dev/null
 
 if [ ! -x /usr/local/bin/brew ]; then
   echo "-----> Installing homebrew"
   ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 else
+  echo "-----> Updating homebrew"
   brew update > /dev/null
   brew upgrade
 fi
 
-# Install more recent versions of some OS X tools
+# Allow installation of more recent versions of some OS X tools
 brew_tap homebrew/dupes
 
-echo "-----> Installing Caskroom"
+echo "-----> Installing Caskroom for installing GUI apps via brew"
 silently brew install caskroom/cask/brew-cask
 
-echo "-----> Configuring iCloud account for $APPLE_ID_USER"
-add_assitive_device /usr/libexec/sshd-keygen-wrapper
-osascript log_in_to_icloud.scpt $APPLE_ID_USER $APPLE_ID_PASS
-remove_assitive_device /usr/libexec/sshd-keygen-wrapper
+#TODO: Detect if iCloud already logged in and skip
+#echo "-----> Configuring iCloud account for $APPLE_ID_USER"
+# add_assitive_device /usr/libexec/sshd-keygen-wrapper
+# osascript log_in_to_icloud.scpt $APPLE_ID_USER $APPLE_ID_PASS
+# remove_assitive_device /usr/libexec/sshd-keygen-wrapper
 
+# Install mac app store and brew cask apps
 install_mas_app id425264550 "Blackmagic Disk Speed Test"
 install_cask_app carbon-copy-cloner
 install_cask_app google-chrome
 
-# if [ "$STRAPPING_SERVER" = false ] ; then
-  install_mas_app id443987910 1Password
-  #TODO: Configure 1Password
-  # install_mas_app id726099620 Bee
-  # install_mas_app id413857545 Divvy
-  # install_mas_app id623795237 "Ulysses III"
-  install_mas_app id880001334 Reeder
-  #TODO: Configure Reeder
-  install_mas_app id411643860 DaisyDisk
-  install_mas_app id458034879 Dash
-  install_mas_app id634108295 Acorn
-  install_mas_app id432027450 RadarScope
-  install_mas_app id881891876 StackTray
-  install_mas_app id557168941 Tweetbot
-  install_mas_app id715768417 "Microsoft Remote Desktop"
-  install_mas_app id852320343 Sketch
-  install_cask_app istat-menus
-  install_cask_app mailbox
-  install_cask_app spotify
-  install_cask_app slack
-  install_cask_app droplr
-  install_cask_app postico
-  install_cask_app league-of-legends
-  install_cask_app transmit
-  install_cask_app insync
-# fi
-#TODO: Customize dock icons and folders
+# Any app you haven't purchase will cause this script to stop
+install_mas_app id443987910 1Password
+install_mas_app id413857545 Divvy
+install_mas_app id623795237 Ulysses
+install_mas_app id880001334 Reeder
+install_mas_app id411643860 DaisyDisk
+install_mas_app id458034879 Dash
+install_mas_app id407963104 Pixelmator
+install_mas_app id432027450 RadarScope
+install_mas_app id557168941 Tweetbot
+install_mas_app id715768417 "Microsoft Remote Desktop"
+install_mas_app id852320343 Sketch
+install_cask_app alfred
+install_cask_app mailbox
+install_cask_app slack
+install_cask_app postico
+install_cask_app league-of-legends
+install_cask_app transmit
+
+#TODO: Customize dock icons and folders with dockutils
+#TODO: Turn off iTunes track notifications
 #TODO: Add apps to login items: com.apple.loginitems.plist
 #TODO: Configure Terminal.app via plist
 
-echo "-----> Accepting Xcode Licenses"
-./xcode_agree.sh 1> /dev/null
-
-echo -n "-----> Installing other useful binaries: "
+echo -n "-----> Installing useful binaries: "
 
 brew_install coreutils                  # GNU core utilities (those that come with OS X are outdated)
 brew_install ctags                      # For indexing files (vim tab completion of methods, classes, variables)
-# brew_install findutils                  # GNU `find`, `locate`, `updatedb`, and `xargs`, g-prefixed
+brew_install dockutil                   # For adding and removing dock icons
 brew_install gcal                       # GNU cal with 3-month view (gcal .)
 brew_install git                        # Distributed version control
 brew_install git-extras                 # Helpful git commands; See https://github.com/visionmedia/git-extras
 brew_install heroku-toolbelt            # Recommened way to install heroku command line
 brew_install htop-osx                   # Better top
-# brew_install imagemagick                # Process images (used for carrierwave gem)
 brew_install macvim --override-system-vim --force # Newer, better, faster, stronger vim
 brew_install memcached                  # Good open source memory store for caching
 brew_install node                       # JS V8 engine
