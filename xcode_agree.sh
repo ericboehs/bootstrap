@@ -5,12 +5,12 @@ expect {
     "Hit the Enter key to view the license agreements" {
       send "\r\n"
     }
+    "Software License Agreements Press 'space' for more, or 'q' to quit" {
+        send "q";
+        exp_continue;
+    }
     "By typing 'agree' you are agreeing" {
         send "agree\r\n"
-    }
-    "Software License Agreements Press 'space' for more, or 'q' to quit" {
-        send " ";
-        exp_continue;
     }
     timeout {
         send_user "\nTimeout 2\n";
