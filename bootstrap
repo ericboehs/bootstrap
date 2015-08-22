@@ -13,7 +13,7 @@
 set -e
 
 # Set the computer name to
-COMPUTER_NAME='E27'
+# COMPUTER_NAME='Apollo-15'
 
 # Toggle to configure server or desktop
 STRAPPING_SERVER=true
@@ -87,11 +87,13 @@ if [[ -z $(sudo grep "$USER.*NOPASSWD" /etc/sudoers) ]]; then
   echo "$USER ALL=(ALL) NOPASSWD: ALL" | sudo tee -a /etc/sudoers > /dev/null
 fi
 
-echo "-----> Setting computer name to $COMPTUER_NAME"
-sudo scutil --set ComputerName $COMPUTER_NAME
-sudo scutil --set HostName $COMPUTER_NAME
-sudo scutil --set LocalHostName $COMPUTER_NAME
-sudo defaults write /Library/Preferences/SystemConfiguration/com.apple.smb.server NetBIOSName -string $COMPUTER_NAME
+if [ -n "$COMPUTER_NAME" ]; then
+  echo "-----> Setting computer name to $COMPTUER_NAME"
+  sudo scutil --set ComputerName $COMPUTER_NAME
+  sudo scutil --set HostName $COMPUTER_NAME
+  sudo scutil --set LocalHostName $COMPUTER_NAME
+  sudo defaults write /Library/Preferences/SystemConfiguration/com.apple.smb.server NetBIOSName -string $COMPUTER_NAME
+fi
 
 echo "-----> Create ~/Code directory"
 mkdir -p ~/Code
