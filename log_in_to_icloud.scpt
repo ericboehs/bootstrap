@@ -28,9 +28,8 @@ on run argv
           delay 1
           key code 124
           delay 1
-          -- Yosemite doesn't allow space but it does enale the Sign In button
-          -- El Cap does allow so a backspace is needed
           keystroke " "
+          keystroke (ASCII character 8)
 
           click button "Sign In"
 
@@ -42,24 +41,18 @@ on run argv
         end tell
 
         tell sheet 1
+          repeat until exists button "Sign in"
+            delay 1
+          end repeat
+
+          set value of text field 1 to applePassword
+          click button "Sign In"
+
           repeat until exists button "Allow"
             delay 1
           end repeat
 
           click button "Allow"
-
-          repeat until exists button "Not Now"
-            delay 1
-          end repeat
-
-          click button "Not Now"
-
-          repeat until exists button "OK"
-            delay 1
-          end repeat
-
-          set value of text field 1 to applePassword
-          click button "OK"
 
           repeat until exists button "Request Approval"
             delay 1
@@ -74,26 +67,24 @@ on run argv
           click button "OK"
         end tell
 
-        -- TODO: Remove once iCloud Photo Library script set up
-        -- Disable iCloud Photo Library as needs to be enabled in iPhoto
-        -- tell group 1
-        --   tell scroll area 1
-        --     tell table 1
-        --       tell row 2
-        --         tell UI element 1
-        --           click button "Options…"
-        --           delay 1
-        --         end tell
-        --       end tell
-        --     end tell
-        --   end tell
-        -- end tell
+        tell group 1
+          tell scroll area 1
+            tell table 1
+              tell row 2
+                tell UI element 1
+                  click button "Options…"
+                  delay 1
+                end tell
+              end tell
+            end tell
+          end tell
+        end tell
 
-        -- tell sheet 1
-        --   click checkbox 1
-        --   delay 1
-        --   click button "Done"
-        -- end tell
+        tell sheet 1
+          click checkbox 1
+          delay 1
+          click button "Done"
+        end tell
       end tell
     end tell
   end tell

@@ -1,6 +1,6 @@
 # Bootstrap
 
-A script to bootstrap a fresh Mac to fully configured. For Yosemite and El Capitan.
+A script to bootstrap a fresh Mac to fully configured. For El Capitan.
 
 ## Installation
 After going through the OS X setup assistant (creating an account and logging into iCloud), run:
@@ -29,7 +29,7 @@ Bootstrap aims to configure a machine fully to my liking. It's not quite there. 
 - And several others (Postico, Xcode, CCC, Chrome, Dash, Tweetbot, League)
 - Add finally I install [my dotfiles](https://github.com/ericboehs/dotfiles).
 
-Some other notes: I use *Safari and iCloud Keychain* as my primary browser and password store. I try not to install Flash (using Chrome for when I absolutely need it). I use *Terminal* instead of iTerm as it supports everything I need (UTF8, 256 colors, etc). I also use *Alfred* as a power house app. If there's an Alfred extension, I'd rather use it than adding an application. I tried Mail.app and *Mailbox* is superior. I tried El Capitan's Notes.app and it needs customizable default fonts and markdown support before I can ditch *Ulysses*. Finally, I use 1Password for secure notes, ids, licenses and certs.
+Some other notes: I use **Safari and iCloud Keychain** as my primary browser and password store. I try not to install Flash (using Chrome for when I absolutely need it). I use **Terminal** instead of iTerm as it supports everything I need (UTF8, 256 colors, etc). I also use **Alfred** as a power house app. If there's an Alfred extension, I'd rather use it than adding an application. I tried Mail.app and **Mailbox** is superior. I tried El Capitan's Notes.app and it needs customizable default fonts and markdown support before I can ditch **Ulysses**. Finally, I use 1Password for secure notes, ids, licenses and certs.
 
 ## What are the other scripts?
 

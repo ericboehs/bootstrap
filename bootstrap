@@ -30,7 +30,7 @@ ignore_error() {
 }
 
 add_assitive_device() {
-  sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "INSERT OR REPLACE INTO access VALUES('kTCCServiceAccessibility','$1',1,1,1,NULL);"
+  sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "INSERT OR REPLACE INTO access VALUES('kTCCServiceAccessibility','$1',1,1,1,NULL,NULL);"
 }
 
 remove_assitive_device() {
@@ -188,7 +188,7 @@ install_mas_app id497799835 Xcode
 
 # FIXME: License acceptance doesn't seem to be typing "agree" correctly
 echo "-----> Accepting Xcode Licenses"
-./xcode_agree.sh 1> /dev/null
+#./xcode_agree.sh 1> /dev/null
 
 if [ ! -x /usr/local/bin/brew ]; then
   echo "-----> Installing homebrew"
@@ -222,7 +222,7 @@ install_mas_app id413857545 Divvy
 install_mas_app id623795237 Ulysses
 install_mas_app id880001334 Reeder
 install_mas_app id411643860 DaisyDisk
-install_mas_app id458034879 Dash
+install_mas_app id449589707 Dash
 install_mas_app id407963104 Pixelmator
 install_mas_app id432027450 RadarScope
 install_mas_app id557168941 Tweetbot
@@ -253,7 +253,8 @@ brew_install htop-osx                   # Better top
 brew_install macvim --override-system-vim --force # Newer, better, faster, stronger vim
 brew_install memcached                  # Good open source memory store for caching
 brew_install node                       # JS V8 engine
-brew_install phantomjs                  # Headless webkit used for testing (with capybara/poltergeist)
+npm install -g phantomjs # Temporarily install via npm while phantomjs doesn't work right on el cap
+# brew_install phantomjs                  # Headless webkit used for testing (with capybara/poltergeist)
 brew_install postgresql --no-python     # Realational Database
 brew_install reattach-to-user-namespace # Reattaches user namespace in tmux  (for pasteboard interaction and ruby motion)
 brew_install redis                      # Key-value store
