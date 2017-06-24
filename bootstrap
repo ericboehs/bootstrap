@@ -29,23 +29,12 @@ ignore_error() {
   $* || echo -n
 }
 
-add_assitive_device() {
-  sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "INSERT OR REPLACE INTO access VALUES('kTCCServiceAccessibility','$1',1,1,1,NULL,NULL);"
-}
-
-remove_assitive_device() {
-  sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "DELETE FROM access WHERE client='$1';"
-}
-
 install_mas_app() {
   if [ ! -x "/Applications/$2.app" ]; then
     echo "-----> Installing $2 from Mac App Store: http://itunes.apple.com/app/$1"
-    add_assitive_device /usr/libexec/sshd-keygen-wrapper
-    osascript install_mas_app.scpt $APPLE_ID_USER $APPLE_ID_PASS $1
-    remove_assitive_device /usr/libexec/sshd-keygen-wrapper
-    silently ignore_error sudo killall "App Store"
+    mas install $1
   else
-    echo "-----> Ensuring $2 still installed from Mac App Store: http://itunes.apple.com/app/$1"
+    echo "-----> Ensuring $2 still installed from Mac App Store: http://itunes.apple.com/app/id$1"
   fi
 }
 
@@ -69,17 +58,6 @@ brew_tap() {
     brew tap $1
   fi
 }
-
-# Assign apple user/pass from remote variables. (used in conjunction with bootstrap_remote)
-if [ -n "$APPLE_ID_USER_REMOTE" ] || [ -n "$APPLE_ID_PASS_REMOTE" ]; then
-  APPLE_ID_USER=$APPLE_ID_USER_REMOTE
-  APPLE_ID_PASS=$APPLE_ID_PASS_REMOTE
-fi
-
-if [ -z "$APPLE_ID_USER" ] || [ -z "$APPLE_ID_PASS" ]; then
-  echo '$APPLE_ID_USER and/or $APPLE_ID_PASS missing. Exiting...'
-  exit 1
-fi
 
 # Don't require a password for sudo. Comment this out if you want it to prompt for a password.
 if [[ -z $(sudo grep "$USER.*NOPASSWD" /etc/sudoers) ]]; then
@@ -109,9 +87,12 @@ start_service /System/Library/LaunchDaemons/com.apple.AppleFileServer.plist
 silently ignore_error sudo systemsetup -setremotelogin on
 
 echo "-----> Turn on system updates"
-sudo defaults write /Library/Preferences/com.apple.commerce AutoUpdate -bool TRUE
-sudo defaults write /Library/Preferences/com.apple.commerce AutoUpdateRestartRequired -bool TRUE
-defaults write com.apple.SoftwareUpdate ScheduleFrequency -int 1
+sudo defaults write com.apple.SoftwareUpdate AutomaticCheckEnabled -bool true
+sudo defaults write com.apple.SoftwareUpdate ScheduleFrequency -int 1
+sudo defaults write com.apple.SoftwareUpdate AutomaticDownload -int 1
+sudo defaults write com.apple.SoftwareUpdate CriticalUpdateInstall -int 1
+sudo defaults write com.apple.commerce AutoUpdate -bool true
+sudo defaults write com.apple.commerce AutoUpdateRestartRequired -bool true
 
 if [ "$STRAPPING_SERVER" = true ] ; then
   echo "-----> Disabling screen saver and sleepiness"
@@ -126,17 +107,16 @@ if [ "$STRAPPING_SERVER" = true ] ; then
 
   echo "-----> Disabling IR receiver"
   sudo defaults write /Library/Preferences/com.apple.driver.AppleIRController DeviceEnabled -bool false
+
   echo "-----> Disabling power button from sleeping system"
   defaults write com.apple.loginwindow PowerButtonSleepsSystem -bool no
 fi
 
 #TODO: Make Capslock press Ctrl
 
-echo "-----> Make mouse and keyboard faster"
-defaults write NSGlobalDomain KeyRepeat -int 0
-defaults write NSGlobalDomain com.apple.mouse.scaling -float 9
-defaults write NSGlobalDomain com.apple.trackpad.scaling -int 9
-defaults write NSGlobalDomain com.apple.scrollwheel.scaling -float 3
+echo "-----> Make keyboard faster"
+defaults write NSGlobalDomain KeyRepeat -int 1
+defaults write NSGlobalDomain InitialKeyRepeat -int 10
 
 echo "-----> Restart automatically if the computer freezes"
 sudo systemsetup -setrestartfreeze on
@@ -183,57 +163,34 @@ defaults write com.apple.Safari com.apple.Safari.ContentPageGroupIdentifier.WebK
 echo "-----> Updating system software"
 sudo softwareupdate --install --all 2> >(grep -v "No updates are available") 1> /dev/null
 
-echo "-----> Install xcode"
-install_mas_app id497799835 Xcode
-
-# FIXME: License acceptance doesn't seem to be typing "agree" correctly
-echo "-----> Accepting Xcode Licenses"
-#./xcode_agree.sh 1> /dev/null
-
 if [ ! -x /usr/local/bin/brew ]; then
   echo "-----> Installing homebrew"
   ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-else
-  echo "-----> Updating homebrew"
-  brew update > /dev/null
-  brew upgrade
 fi
 
-# Allow installation of more recent versions of some OS X tools
-brew_tap homebrew/dupes
+# Install mas 
+brew_install mas
 
-echo "-----> Installing Caskroom for installing GUI apps via brew"
-silently brew install caskroom/cask/brew-cask
-
-#TODO: Detect if iCloud already logged in and skip
-#echo "-----> Configuring iCloud account for $APPLE_ID_USER"
-# add_assitive_device /usr/libexec/sshd-keygen-wrapper
-# osascript log_in_to_icloud.scpt $APPLE_ID_USER $APPLE_ID_PASS
-# remove_assitive_device /usr/libexec/sshd-keygen-wrapper
-
-# Install mac app store and brew cask apps
-install_mas_app id425264550 "Blackmagic Disk Speed Test"
+install_mas_app 497799835 Xcode
 install_cask_app carbon-copy-cloner
 install_cask_app google-chrome
-
-# Any app you haven't purchase will cause this script to stop
-install_mas_app id443987910 1Password
-install_mas_app id413857545 Divvy
-install_mas_app id623795237 Ulysses
-install_mas_app id880001334 Reeder
-install_mas_app id411643860 DaisyDisk
-install_mas_app id449589707 Dash
-install_mas_app id407963104 Pixelmator
-install_mas_app id432027450 RadarScope
-install_mas_app id557168941 Tweetbot
-install_mas_app id715768417 "Microsoft Remote Desktop"
-install_mas_app id852320343 Sketch
+install_mas_app 443987910 1Password
+install_mas_app 413857545 Divvy
+install_mas_app 918858936 "Airmail 3"
+install_mas_app 623795237 Ulysses
+install_mas_app 880001334 Reeder
+install_mas_app 411643860 DaisyDisk
+install_mas_app 407963104 Pixelmator
+install_mas_app 432027450 RadarScope
+install_mas_app 557168941 Tweetbot
 install_cask_app alfred
-install_cask_app mailbox
 install_cask_app slack
 install_cask_app postico
 install_cask_app league-of-legends
 install_cask_app transmit
+install_cask_app bettertouchtool
+install_cask_app keybase
+install_cask_app istat-menus
 
 #TODO: Customize dock icons and folders with dockutils
 #TODO: Turn off iTunes track notifications
@@ -242,29 +199,33 @@ install_cask_app transmit
 
 echo -n "-----> Installing useful binaries: "
 
+# Allow installation of more recent versions of some OS X tools
+brew_tap homebrew/dupes
+
 brew_install coreutils                  # GNU core utilities (those that come with OS X are outdated)
+brew_install chruby                     # Easily switch between version of ruby
 brew_install ctags                      # For indexing files (vim tab completion of methods, classes, variables)
-brew_install dockutil                   # For adding and removing dock icons
-brew_install gcal                       # GNU cal with 3-month view (gcal .)
+brew_install fzf                        # Fuzzy finder for zsh and vim
 brew_install git                        # Distributed version control
-brew_install git-extras                 # Helpful git commands; See https://github.com/visionmedia/git-extras
 brew_install heroku-toolbelt            # Recommened way to install heroku command line
 brew_install htop-osx                   # Better top
-brew_install macvim --override-system-vim --force # Newer, better, faster, stronger vim
-brew_install memcached                  # Good open source memory store for caching
+brew_install pinentry-mac               # So you don't have to enter your GPG password for every commit
+brew_install macvim --with-override-system-vim --force # Newer, better, faster, stronger vim
 brew_install node                       # JS V8 engine
-npm install -g phantomjs # Temporarily install via npm while phantomjs doesn't work right on el cap
-# brew_install phantomjs                  # Headless webkit used for testing (with capybara/poltergeist)
 brew_install postgresql --no-python     # Realational Database
 brew_install reattach-to-user-namespace # Reattaches user namespace in tmux  (for pasteboard interaction and ruby motion)
 brew_install redis                      # Key-value store
 brew_install rename                     # Like mv but better (takes regex)
-brew_install ruby                       # Straight up Ruby 2.2. Nothing fancy like rbenv or rvm.
+brew_install ruby-install               # Helper for chruby to install ruby versions
 brew_install the_silver_searcher        # The Silver Searcher - faster than grep or ack
 brew_install tmux                       # Terminal multiplexer (for saving project state and switching between projects)
 brew_install tree                       # ASCII view of directory/file structure
 brew_install watch                      # Repeateadly run a command (clearing output between runs)
 brew_install zsh                        # Zsh 5
 echo
+
+# Install latest ruby via ruby-install
+echo 'ruby-2.4' > ~/.ruby-version
+ruby -v | tr \  - | grep $(cat ~/.ruby-version) > /dev/null || ruby-install $(cat ~/.ruby-version)
 
 echo "-----> All done. Enjoy your shiny new $COMPUTER_NAME."
