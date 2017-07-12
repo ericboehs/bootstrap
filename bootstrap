@@ -168,7 +168,7 @@ if [ ! -x /usr/local/bin/brew ]; then
   ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 fi
 
-# Install mas 
+# Install mas apps
 brew_install mas
 
 install_mas_app 497799835 Xcode
@@ -183,6 +183,11 @@ install_mas_app 411643860 DaisyDisk
 install_mas_app 407963104 Pixelmator
 install_mas_app 432027450 RadarScope
 install_mas_app 557168941 Tweetbot
+install_mas_app 1091189122 Bear
+install_mas_app 1107421413 1Blocker
+install_mas_app 623795237 Ulysses
+install_mas_app 533696630 "Webcam Settings"
+install_mas_app 924726344 Deliveries
 install_cask_app alfred
 install_cask_app slack
 install_cask_app postico
@@ -191,6 +196,19 @@ install_cask_app transmit
 install_cask_app bettertouchtool
 install_cask_app keybase
 install_cask_app istat-menus
+install_cask_app gitify
+install_cask_app bitbar
+install_cask_app bartender
+install_cask_app dropbox
+install_cask_app synergy
+# install_cask_app qbserve # Temporarily broken due to sha mismatch
+install_cask_app transmit
+install_cask_app zoomus
+install_cask_app skype
+install_cask_app sketch
+install_cask_app fluid
+install_cask_app docker
+install_cask_app dropshare
 
 #TODO: Customize dock icons and folders with dockutils
 #TODO: Turn off iTunes track notifications
