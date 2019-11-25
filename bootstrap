@@ -16,7 +16,7 @@ set -e
 # COMPUTER_NAME='Apollo-15'
 
 # Toggle to configure server or desktop
-STRAPPING_SERVER=true
+# STRAPPING_SERVER=true
 
 PATH="/usr/local/bin:$PATH"
 
@@ -76,23 +76,11 @@ fi
 echo "-----> Create ~/Code directory"
 mkdir -p ~/Code
 
-echo "-----> Enabling firewall"
-sudo defaults write /Library/Preferences/com.apple.alf globalstate -int 1
-
-echo "-----> Enabling file sharing (afp), screen sharing (vnc) and remote login (ssh)"
+echo "-----> Enabling file sharing (afp) and screen sharing (vnc)"
 sudo defaults write /var/db/launchd.db/com.apple.launchd/overrides.plist com.apple.screensharing -dict Disabled -bool false
 start_service /System/Library/LaunchDaemons/com.apple.screensharing.plist
 sudo defaults write /var/db/launchd.db/com.apple.launchd/overrides.plist com.apple.AppleFileServer -dict Disabled -bool false
 start_service /System/Library/LaunchDaemons/com.apple.AppleFileServer.plist
-silently ignore_error sudo systemsetup -setremotelogin on
-
-echo "-----> Turn on system updates"
-sudo defaults write com.apple.SoftwareUpdate AutomaticCheckEnabled -bool true
-sudo defaults write com.apple.SoftwareUpdate ScheduleFrequency -int 1
-sudo defaults write com.apple.SoftwareUpdate AutomaticDownload -int 1
-sudo defaults write com.apple.SoftwareUpdate CriticalUpdateInstall -int 1
-sudo defaults write com.apple.commerce AutoUpdate -bool true
-sudo defaults write com.apple.commerce AutoUpdateRestartRequired -bool true
 
 if [ "$STRAPPING_SERVER" = true ] ; then
   echo "-----> Disabling screen saver and sleepiness"
@@ -101,9 +89,6 @@ if [ "$STRAPPING_SERVER" = true ] ; then
   sudo pmset disksleep 0
   sudo pmset autorestart 1
   sudo pmset repeat wakeorpoweron MTWRFSU 5:00:00
-
-  echo "-----> Disabling screen lock"
-  defaults -currentHost write com.apple.screensaver askForPassword -int 0
 
   echo "-----> Disabling IR receiver"
   sudo defaults write /Library/Preferences/com.apple.driver.AppleIRController DeviceEnabled -bool false
@@ -114,12 +99,12 @@ fi
 
 #TODO: Make Capslock press Ctrl
 
+echo "-----> Disabling screen lock"
+defaults -currentHost write com.apple.screensaver askForPassword -int 0
+
 echo "-----> Make keyboard faster"
 defaults write NSGlobalDomain KeyRepeat -int 1
 defaults write NSGlobalDomain InitialKeyRepeat -int 10
-
-echo "-----> Restart automatically if the computer freezes"
-sudo systemsetup -setrestartfreeze on
 
 echo "-----> Enable full keyboard access for all controls (in Keyboard pref pane)"
 defaults write NSGlobalDomain AppleKeyboardUIMode -int 3
@@ -128,15 +113,9 @@ echo "-----> Use scroll gesture with the Ctrl (^) modifier key to zoom"
 defaults write com.apple.universalaccess closeViewScrollWheelToggle -bool true
 defaults write com.apple.universalaccess HIDScrollZoomModifierMask -int 262144
 
-echo "-----> Customize dock: Automatically hide the Dock, remove delays"
-defaults write com.apple.dock autohide -bool true
-defaults write com.apple.dock autohide-delay -float 0
-defaults write com.apple.dock autohide-time-modifier -float 0
-
-echo "-----> Tweak Finder: Empty trash securely and without prompt, use column view, enable airdrop over ethernet"
+echo "-----> Tweak Finder: Empty trash without prompt, use column view, enable airdrop over ethernet"
 defaults write com.apple.finder FXPreferredViewStyle -string "clmv"
 defaults write com.apple.finder WarnOnEmptyTrash -bool false
-defaults write com.apple.finder EmptyTrashSecurely -bool true
 defaults write com.apple.NetworkBrowser BrowseAllInterfaces -bool true
 
 # Avoid creating .DS_Store files on network volumes
@@ -160,56 +139,69 @@ defaults write com.apple.Safari com.apple.Safari.ContentPageGroupIdentifier.WebK
 defaults write com.apple.Safari WebKitTabToLinksPreferenceKey -bool true
 defaults write com.apple.Safari com.apple.Safari.ContentPageGroupIdentifier.WebKit2TabsToLinks -bool true
 
+echo "-----> Disable auto-correcty stuff"
+# Disable automatic capitalization
+defaults write NSGlobalDomain NSAutomaticCapitalizationEnabled -bool false
+
+# Disable smart dashes
+defaults write NSGlobalDomain NSAutomaticDashSubstitutionEnabled -bool false
+
+# Disable automatic period substitution
+defaults write NSGlobalDomain NSAutomaticPeriodSubstitutionEnabled -bool false
+
+# Disable smart quotes
+defaults write NSGlobalDomain NSAutomaticQuoteSubstitutionEnabled -bool false
+
+# Disable auto-correct
+defaults write NSGlobalDomain NSAutomaticSpellingCorrectionEnabled -bool false
+
+# Enable automatic updating of apps
+defaults write com.apple.commerce AutoUpdate -bool true
+
 echo "-----> Updating system software"
 sudo softwareupdate --install --all 2> >(grep -v "No updates are available") 1> /dev/null
 
 if [ ! -x /usr/local/bin/brew ]; then
   echo "-----> Installing homebrew"
-  ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+  /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 fi
 
 # Install mas apps
+echo -n "-----> Installing mas (install App Store apps from the command line): "
 brew_install mas
+echo
 
 install_mas_app 497799835 Xcode
+install_cask_app 1password
 install_cask_app carbon-copy-cloner
 install_cask_app google-chrome
-install_mas_app 443987910 1Password
-install_mas_app 413857545 Divvy
-install_mas_app 918858936 "Airmail 3"
-install_mas_app 623795237 Ulysses
-install_mas_app 880001334 Reeder
+install_cask_app rectangle
+install_mas_app 496437906 Shush
+install_mas_app 1225570693 UlyssesMac
 install_mas_app 411643860 DaisyDisk
 install_mas_app 407963104 Pixelmator
 install_mas_app 432027450 RadarScope
-install_mas_app 557168941 Tweetbot
 install_mas_app 1091189122 Bear
-install_mas_app 1107421413 1Blocker
-install_mas_app 623795237 Ulysses
-install_mas_app 533696630 "Webcam Settings"
+install_mas_app 1440147259 "AdGuard for Safari"
 install_mas_app 924726344 Deliveries
+install_mas_app 1176895641 Spark
+install_mas_app 975937182 "Fantastical 2"
 install_cask_app alfred
 install_cask_app slack
 install_cask_app postico
 install_cask_app league-of-legends
 install_cask_app transmit
-install_cask_app bettertouchtool
-install_cask_app keybase
 install_cask_app istat-menus
-install_cask_app gitify
 install_cask_app bitbar
-install_cask_app bartender
-install_cask_app dropbox
-install_cask_app synergy
-# install_cask_app qbserve # Temporarily broken due to sha mismatch
-install_cask_app transmit
 install_cask_app zoomus
-install_cask_app skype
-install_cask_app sketch
 install_cask_app fluid
 install_cask_app docker
-install_cask_app dropshare
+brew_install homebrew/cask-drivers/logitech-gaming-software
 
+# Add apps to login items
+osascript -e 'tell application "System Events" to make login item at end with properties {path:"/Applications/Unshaky.app", hidden:false}'
+
+#TODO: Turn off auto correct
 #TODO: Customize dock icons and folders with dockutils
 #TODO: Turn off iTunes track notifications
 #TODO: Add apps to login items: com.apple.loginitems.plist
@@ -217,33 +209,35 @@ install_cask_app dropshare
 
 echo -n "-----> Installing useful binaries: "
 
-# Allow installation of more recent versions of some OS X tools
-brew_tap homebrew/dupes
-
 brew_install coreutils                  # GNU core utilities (those that come with OS X are outdated)
-brew_install chruby                     # Easily switch between version of ruby
+# brew_install chruby                     # Easily switch between version of ruby
 brew_install ctags                      # For indexing files (vim tab completion of methods, classes, variables)
 brew_install fzf                        # Fuzzy finder for zsh and vim
 brew_install git                        # Distributed version control
-brew_install heroku-toolbelt            # Recommened way to install heroku command line
+brew_install gpg2
+brew_install heroku/brew/heroku         # Recommened way to install heroku command line
 brew_install htop-osx                   # Better top
-brew_install pinentry-mac               # So you don't have to enter your GPG password for every commit
-brew_install macvim --with-override-system-vim --force # Newer, better, faster, stronger vim
+brew_install hub
+brew_install imagemagick
+brew_install neovim                     # Newer, better, faster, stronger vim
 brew_install node                       # JS V8 engine
-brew_install postgresql --no-python     # Realational Database
-brew_install reattach-to-user-namespace # Reattaches user namespace in tmux  (for pasteboard interaction and ruby motion)
+brew_install postgresql                 # Realational Database
+# brew_install reattach-to-user-namespace # Reattaches user namespace in tmux  (for pasteboard interaction and ruby motion)
 brew_install redis                      # Key-value store
 brew_install rename                     # Like mv but better (takes regex)
 brew_install ruby-install               # Helper for chruby to install ruby versions
-brew_install the_silver_searcher        # The Silver Searcher - faster than grep or ack
+brew_install ripgrep                    # Ripgrep - faster than grep, ack, or ag
 brew_install tmux                       # Terminal multiplexer (for saving project state and switching between projects)
 brew_install tree                       # ASCII view of directory/file structure
 brew_install watch                      # Repeateadly run a command (clearing output between runs)
 brew_install zsh                        # Zsh 5
 echo
 
-# Install latest ruby via ruby-install
-echo 'ruby-2.4' > ~/.ruby-version
-ruby -v | tr \  - | grep $(cat ~/.ruby-version) > /dev/null || ruby-install $(cat ~/.ruby-version)
+# Start redis and postgres
+brew services start redis
+brew services start postgres
+
+echo "-----> Set default shell to /usr/local/bin/zsh"
+sudo chsh -s /usr/local/bin/zsh $USER
 
 echo "-----> All done. Enjoy your shiny new $COMPUTER_NAME."
