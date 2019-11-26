@@ -76,6 +76,11 @@ fi
 echo "-----> Create ~/Code directory"
 mkdir -p ~/Code
 
+# xattr -d com.apple.quarantine Preferences/Solarized\ Light.terminal
+# xattr -d com.apple.quarantine Preferences/Solarized\ Dark.terminal
+# open Preferences/Solarized\ Light.terminal
+# open Preferences/Solarized\ Dark.terminal
+
 echo "-----> Enabling file sharing (afp) and screen sharing (vnc)"
 sudo defaults write /var/db/launchd.db/com.apple.launchd/overrides.plist com.apple.screensharing -dict Disabled -bool false
 start_service /System/Library/LaunchDaemons/com.apple.screensharing.plist
@@ -110,8 +115,8 @@ echo "-----> Enable full keyboard access for all controls (in Keyboard pref pane
 defaults write NSGlobalDomain AppleKeyboardUIMode -int 3
 
 echo "-----> Use scroll gesture with the Ctrl (^) modifier key to zoom"
-defaults write com.apple.universalaccess closeViewScrollWheelToggle -bool true
-defaults write com.apple.universalaccess HIDScrollZoomModifierMask -int 262144
+# defaults write com.apple.universalaccess closeViewScrollWheelToggle -bool true
+# defaults write com.apple.universalaccess HIDScrollZoomModifierMask -int 262144
 
 echo "-----> Tweak Finder: Empty trash without prompt, use column view, enable airdrop over ethernet"
 defaults write com.apple.finder FXPreferredViewStyle -string "clmv"
@@ -172,6 +177,7 @@ brew_install mas
 echo
 
 install_mas_app 497799835 Xcode
+sudo xcodebuild -license accept
 install_cask_app 1password
 install_cask_app carbon-copy-cloner
 install_cask_app google-chrome
@@ -196,6 +202,7 @@ install_cask_app bitbar
 install_cask_app zoomus
 install_cask_app fluid
 install_cask_app docker
+install_cask_app karabiner-elements
 brew_install homebrew/cask-drivers/logitech-gaming-software
 
 # Add apps to login items
