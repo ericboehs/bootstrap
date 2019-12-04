@@ -219,6 +219,7 @@ echo -n "-----> Installing useful binaries: "
 brew_install coreutils                  # GNU core utilities (those that come with OS X are outdated)
 # brew_install chruby                     # Easily switch between version of ruby
 brew_install ctags                      # For indexing files (vim tab completion of methods, classes, variables)
+brew_install expect                     # Includes unbuffer binary
 brew_install fzf                        # Fuzzy finder for zsh and vim
 brew_install git                        # Distributed version control
 brew_install gpg2
@@ -226,6 +227,7 @@ brew_install heroku/brew/heroku         # Recommened way to install heroku comma
 brew_install htop-osx                   # Better top
 brew_install hub
 brew_install imagemagick
+brew_install moreutils                  # Includs ts (timestamp) binary
 brew_install neovim                     # Newer, better, faster, stronger vim
 brew_install node                       # JS V8 engine
 brew_install postgresql                 # Realational Database
