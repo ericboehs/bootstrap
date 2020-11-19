@@ -1,12 +1,22 @@
 #! /usr/bin/env bash
 
 # Idempotent bootstrap script to stand up a new development Mac
+#
+# Usage: bootstrap <apple id> <apple id pass>
+#
+# Note: If you prefix a bash command with a space it will not be saved to your
+# command history.
+#
+# Subsequent runs will ensure packages are up-to-date.
 
 # Abort this script if any command fails
 set -e
 
 # Set the computer name to
 # COMPUTER_NAME="Eric's 13"
+
+# Toggle to configure server or desktop
+# STRAPPING_SERVER=true
 
 PATH="/usr/local/bin:$PATH"
 
@@ -30,7 +40,7 @@ install_mas_app() {
 
 install_cask_app() {
   echo "-----> Installing $1 from Caskroom"
-  (silently arch -x86_64 brew ls --cask $1) || arch -x86_64 brew cask install $1
+  (silently brew cask ls $1) || brew cask install $1
 }
 
 start_service() {
@@ -39,7 +49,14 @@ start_service() {
 
 brew_install() {
   echo -n "$1 "
-  [[ -n $(arch -x86_64 brew ls --versions $1) ]] || arch -x86_64 brew install $1
+  [[ -n $(brew ls --versions $1) ]] || brew install $1
+}
+
+brew_tap() {
+  if [[ -z $(brew tap | grep -E "^$1$") ]]; then
+    echo "-----> Tapping $1"
+    brew tap $1
+  fi
 }
 
 # Don't require a password for sudo. Comment this out if you want it to prompt for a password.
@@ -59,11 +76,36 @@ fi
 echo "-----> Create ~/Code directory"
 mkdir -p ~/Code
 
-echo "-----> Enabling screen sharing (vnc)"
+# xattr -d com.apple.quarantine Preferences/Solarized\ Light.terminal
+# xattr -d com.apple.quarantine Preferences/Solarized\ Dark.terminal
+# open Preferences/Solarized\ Light.terminal
+# open Preferences/Solarized\ Dark.terminal
+
+echo "-----> Enabling file sharing (afp) and screen sharing (vnc)"
 sudo defaults write /var/db/launchd.db/com.apple.launchd/overrides.plist com.apple.screensharing -dict Disabled -bool false
-silently start_service /System/Library/LaunchDaemons/com.apple.screensharing.plist
+start_service /System/Library/LaunchDaemons/com.apple.screensharing.plist
+sudo defaults write /var/db/launchd.db/com.apple.launchd/overrides.plist com.apple.AppleFileServer -dict Disabled -bool false
+start_service /System/Library/LaunchDaemons/com.apple.AppleFileServer.plist
+
+if [ "$STRAPPING_SERVER" = true ] ; then
+  echo "-----> Disabling screen saver and sleepiness"
+  defaults -currentHost write com.apple.screensaver idleTime 0
+  sudo pmset sleep 0
+  sudo pmset disksleep 0
+  sudo pmset autorestart 1
+  sudo pmset repeat wakeorpoweron MTWRFSU 5:00:00
+
+  echo "-----> Disabling IR receiver"
+  sudo defaults write /Library/Preferences/com.apple.driver.AppleIRController DeviceEnabled -bool false
+
+  echo "-----> Disabling power button from sleeping system"
+  defaults write com.apple.loginwindow PowerButtonSleepsSystem -bool no
+fi
 
 #TODO: Make Capslock press Ctrl
+
+echo "-----> Disabling screen lock"
+defaults -currentHost write com.apple.screensaver askForPassword -int 0
 
 echo "-----> Make keyboard faster"
 defaults write NSGlobalDomain KeyRepeat -int 1
@@ -73,8 +115,8 @@ echo "-----> Enable full keyboard access for all controls (in Keyboard pref pane
 defaults write NSGlobalDomain AppleKeyboardUIMode -int 3
 
 echo "-----> Use scroll gesture with the Ctrl (^) modifier key to zoom"
-defaults write com.apple.universalaccess closeViewScrollWheelToggle -bool true
-defaults write com.apple.universalaccess HIDScrollZoomModifierMask -int 262144
+# defaults write com.apple.universalaccess closeViewScrollWheelToggle -bool true
+# defaults write com.apple.universalaccess HIDScrollZoomModifierMask -int 262144
 
 echo "-----> Tweak Finder: Empty trash without prompt, use column view, enable airdrop over ethernet"
 defaults write com.apple.finder FXPreferredViewStyle -string "clmv"
@@ -118,12 +160,15 @@ defaults write NSGlobalDomain NSAutomaticQuoteSubstitutionEnabled -bool false
 # Disable auto-correct
 defaults write NSGlobalDomain NSAutomaticSpellingCorrectionEnabled -bool false
 
+# Enable automatic updating of apps
+defaults write com.apple.commerce AutoUpdate -bool true
+
 echo "-----> Updating system software"
 sudo softwareupdate --install --all 2> >(grep -v "No updates are available") 1> /dev/null
 
 if [ ! -x /usr/local/bin/brew ]; then
   echo "-----> Installing homebrew"
-  arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+  /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 fi
 
 # Install mas apps
@@ -138,10 +183,14 @@ install_cask_app carbon-copy-cloner
 install_cask_app google-chrome
 install_cask_app rectangle
 install_mas_app 496437906 Shush
+install_mas_app 1225570693 UlyssesMac
 install_mas_app 411643860 DaisyDisk
+install_mas_app 407963104 Pixelmator
 install_mas_app 432027450 RadarScope
+install_mas_app 1091189122 Bear
 install_mas_app 1440147259 "AdGuard for Safari"
 install_mas_app 924726344 Deliveries
+install_mas_app 1176895641 Spark
 install_mas_app 975937182 "Fantastical 2"
 install_cask_app alfred
 install_cask_app slack
@@ -151,10 +200,10 @@ install_cask_app transmit
 install_cask_app istat-menus
 install_cask_app bitbar
 install_cask_app zoomus
+install_cask_app fluid
 install_cask_app docker
 install_cask_app karabiner-elements
-install_cask_app unshaky
-install_cask_app keybase
+brew_install homebrew/cask-drivers/logitech-gaming-software
 
 # Add apps to login items
 osascript -e 'tell application "System Events" to make login item at end with properties {path:"/Applications/Unshaky.app", hidden:false}'
@@ -168,6 +217,7 @@ osascript -e 'tell application "System Events" to make login item at end with pr
 echo -n "-----> Installing useful binaries: "
 
 brew_install coreutils                  # GNU core utilities (those that come with OS X are outdated)
+# brew_install chruby                     # Easily switch between version of ruby
 brew_install ctags                      # For indexing files (vim tab completion of methods, classes, variables)
 brew_install expect                     # Includes unbuffer binary
 brew_install fzf                        # Fuzzy finder for zsh and vim
@@ -181,9 +231,10 @@ brew_install moreutils                  # Includs ts (timestamp) binary
 brew_install neovim                     # Newer, better, faster, stronger vim
 brew_install node                       # JS V8 engine
 brew_install postgresql                 # Realational Database
-brew_install postgis                    # Geospatial Postgres extension
+# brew_install reattach-to-user-namespace # Reattaches user namespace in tmux  (for pasteboard interaction and ruby motion)
 brew_install redis                      # Key-value store
 brew_install rename                     # Like mv but better (takes regex)
+brew_install ruby-install               # Helper for chruby to install ruby versions
 brew_install ripgrep                    # Ripgrep - faster than grep, ack, or ag
 brew_install tmux                       # Terminal multiplexer (for saving project state and switching between projects)
 brew_install tree                       # ASCII view of directory/file structure
@@ -192,10 +243,10 @@ brew_install zsh                        # Zsh 5
 echo
 
 # Start redis and postgres
-arch -x86_64 brew services start redis
-arch -x86_64 brew services start postgres
+brew services start redis
+brew services start postgres
 
 echo "-----> Set default shell to /usr/local/bin/zsh"
 sudo chsh -s /usr/local/bin/zsh $USER
 
-echo "-----> All done. Enjoy your shiny new ${COMPUTER_NAME:-machine}."
+echo "-----> All done. Enjoy your shiny new $COMPUTER_NAME."
