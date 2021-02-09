@@ -30,16 +30,21 @@ install_mas_app() {
 
 install_cask_app() {
   echo "-----> Installing $1 from Caskroom"
-  (silently arch -x86_64 brew ls --cask $1) || arch -x86_64 brew cask install $1
+  (silently brew ls --cask $1) || brew cask install $1
 }
 
 start_service() {
   ignore_error sudo launchctl load -w $1 2> >(grep -v "Operation already in progress")
 }
 
+intel_brew_install() {
+  echo -n "$1 "
+  [[ -n $(arch -x86_64 /usr/local/bin/brew ls --versions $1) ]] || arch -x86_64 /usr/local/bin/brew install $1
+}
+
 brew_install() {
   echo -n "$1 "
-  [[ -n $(arch -x86_64 brew ls --versions $1) ]] || arch -x86_64 brew install $1
+  [[ -n $(brew ls --versions $1) ]] || brew install $1
 }
 
 # Don't require a password for sudo. Comment this out if you want it to prompt for a password.
@@ -71,10 +76,6 @@ defaults write NSGlobalDomain InitialKeyRepeat -int 10
 
 echo "-----> Enable full keyboard access for all controls (in Keyboard pref pane)"
 defaults write NSGlobalDomain AppleKeyboardUIMode -int 3
-
-echo "-----> Use scroll gesture with the Ctrl (^) modifier key to zoom"
-defaults write com.apple.universalaccess closeViewScrollWheelToggle -bool true
-defaults write com.apple.universalaccess HIDScrollZoomModifierMask -int 262144
 
 echo "-----> Tweak Finder: Empty trash without prompt, use column view, enable airdrop over ethernet"
 defaults write com.apple.finder FXPreferredViewStyle -string "clmv"
@@ -134,6 +135,7 @@ echo
 install_mas_app 497799835 Xcode
 sudo xcodebuild -license accept
 install_cask_app 1password
+install_cask_app 1password-cli
 install_cask_app carbon-copy-cloner
 install_cask_app google-chrome
 install_cask_app rectangle
@@ -143,6 +145,12 @@ install_mas_app 432027450 RadarScope
 install_mas_app 1440147259 "AdGuard for Safari"
 install_mas_app 924726344 Deliveries
 install_mas_app 975937182 "Fantastical 2"
+install_mas_app 1319778037 "iStat Menus"
+install_mas_app 1510445899 Meeter
+install_mas_app 1354318707 "Core Tunnel"
+install_mas_app 1143437985 GoodTask
+install_mas_app 1529448980 Reeder
+install_mas_app 890031187 "Marked 2"
 install_cask_app alfred
 install_cask_app slack
 install_cask_app postico
@@ -151,13 +159,19 @@ install_cask_app transmit
 install_cask_app istat-menus
 install_cask_app bitbar
 install_cask_app zoomus
-install_cask_app docker
+# install_cask_app docker
 install_cask_app karabiner-elements
 install_cask_app unshaky
 install_cask_app keybase
+# install_cask_app macvim
+install_cask_app bettertouchtool
+install_cask_app shortcat
+install_cask_app screen
+install_cask_app spotify
+install_cask_app session-manager-plugin
 
 # Add apps to login items
-osascript -e 'tell application "System Events" to make login item at end with properties {path:"/Applications/Unshaky.app", hidden:false}'
+# osascript -e 'tell application "System Events" to make login item at end with properties {path:"/Applications/Unshaky.app", hidden:false}'
 
 #TODO: Turn off auto correct
 #TODO: Customize dock icons and folders with dockutils
@@ -167,33 +181,37 @@ osascript -e 'tell application "System Events" to make login item at end with pr
 
 echo -n "-----> Installing useful binaries: "
 
+intel_brew_install awscli
 brew_install coreutils                  # GNU core utilities (those that come with OS X are outdated)
+brew_install credstash
 brew_install ctags                      # For indexing files (vim tab completion of methods, classes, variables)
-brew_install expect                     # Includes unbuffer binary
-brew_install fzf                        # Fuzzy finder for zsh and vim
-brew_install git                        # Distributed version control
-brew_install gpg2
+intel_brew_install expect               # Includes unbuffer binary
+intel_brew_install fzf                  # Fuzzy finder for zsh and vim
+intel_brew_install git                  # Distributed version control
+intel_brew_install gpg2
 brew_install heroku/brew/heroku         # Recommened way to install heroku command line
-brew_install htop-osx                   # Better top
-brew_install hub
+brew_install htop                       # Better top
+intel_brew_install hub
 brew_install imagemagick
+brew_install jq
 brew_install moreutils                  # Includs ts (timestamp) binary
-brew_install neovim                     # Newer, better, faster, stronger vim
+intel_brew_install neovim                     # Newer, better, faster, stronger vim
 brew_install node                       # JS V8 engine
-brew_install postgresql                 # Realational Database
-brew_install postgis                    # Geospatial Postgres extension
-brew_install redis                      # Key-value store
+intel_brew_install postgresql                 # Realational Database
+# intel_brew_install postgis                    # Geospatial Postgres extension
+intel_brew_install redis                      # Key-value store
 brew_install rename                     # Like mv but better (takes regex)
-brew_install ripgrep                    # Ripgrep - faster than grep, ack, or ag
+intel_brew_install ripgrep                    # Ripgrep - faster than grep, ack, or ag
 brew_install tmux                       # Terminal multiplexer (for saving project state and switching between projects)
 brew_install tree                       # ASCII view of directory/file structure
 brew_install watch                      # Repeateadly run a command (clearing output between runs)
+brew_install yarn
 brew_install zsh                        # Zsh 5
 echo
 
 # Start redis and postgres
 arch -x86_64 brew services start redis
-arch -x86_64 brew services start postgres
+brew services start postgres
 
 echo "-----> Set default shell to /usr/local/bin/zsh"
 sudo chsh -s /usr/local/bin/zsh $USER
