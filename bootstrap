@@ -1,24 +1,16 @@
 #! /usr/bin/env bash
 
 # Idempotent bootstrap script to stand up a new development Mac
-#
-# Usage: bootstrap <apple id> <apple id pass>
-#
-# Note: If you prefix a bash command with a space it will not be saved to your
-# command history.
-#
-# Subsequent runs will ensure packages are up-to-date.
 
 # Abort this script if any command fails
 set -e
 
 # Set the computer name to
-# COMPUTER_NAME='Apollo-15'
+COMPUTER_NAME='Erics-13'
+COMPUTER_NAME_HUMAN="Eric's 13"
 
 # Toggle to configure server or desktop
 # STRAPPING_SERVER=true
-
-PATH="/usr/local/bin:$PATH"
 
 # Some helper functions used throughout the script
 silently() {
@@ -40,23 +32,20 @@ install_mas_app() {
 
 install_cask_app() {
   echo "-----> Installing $1 from Caskroom"
-  (silently brew cask ls $1) || brew cask install $1
+  [[ -n $(brew_ls $1) ]] || brew install --cask $1
 }
 
 start_service() {
-  ignore_error sudo launchctl load -w $1 2> >(grep -v "Operation already in progress")
+  silently ignore_error sudo launchctl load -w $1 2> >(grep -v "Operation already in progress")
+}
+
+brew_ls() {
+  (cat /tmp/brew_ls 2> /dev/null || brew ls -1 | tee /tmp/brew_ls) | grep $1
 }
 
 brew_install() {
   echo -n "$1 "
-  [[ -n $(brew ls --versions $1) ]] || brew install $1
-}
-
-brew_tap() {
-  if [[ -z $(brew tap | grep -E "^$1$") ]]; then
-    echo "-----> Tapping $1"
-    brew tap $1
-  fi
+  [[ -n $(brew_ls $1) ]] || brew install $1
 }
 
 # Don't require a password for sudo. Comment this out if you want it to prompt for a password.
@@ -67,7 +56,7 @@ fi
 
 if [ -n "$COMPUTER_NAME" ]; then
   echo "-----> Setting computer name to $COMPTUER_NAME"
-  sudo scutil --set ComputerName $COMPUTER_NAME
+  sudo scutil --set ComputerName $COMPUTER_NAME_HUMAN
   sudo scutil --set HostName $COMPUTER_NAME
   sudo scutil --set LocalHostName $COMPUTER_NAME
   sudo defaults write /Library/Preferences/SystemConfiguration/com.apple.smb.server NetBIOSName -string $COMPUTER_NAME
@@ -76,16 +65,12 @@ fi
 echo "-----> Create ~/Code directory"
 mkdir -p ~/Code
 
-# xattr -d com.apple.quarantine Preferences/Solarized\ Light.terminal
-# xattr -d com.apple.quarantine Preferences/Solarized\ Dark.terminal
-# open Preferences/Solarized\ Light.terminal
-# open Preferences/Solarized\ Dark.terminal
+echo "-----> Enabling SSH (remote login)"
+sudo systemsetup -getremotelogin | grep -q ": On" || sudo systemsetup -setremotelogin on
 
-echo "-----> Enabling file sharing (afp) and screen sharing (vnc)"
+echo "-----> Enabling screen sharing (vnc)"
 sudo defaults write /var/db/launchd.db/com.apple.launchd/overrides.plist com.apple.screensharing -dict Disabled -bool false
 start_service /System/Library/LaunchDaemons/com.apple.screensharing.plist
-sudo defaults write /var/db/launchd.db/com.apple.launchd/overrides.plist com.apple.AppleFileServer -dict Disabled -bool false
-start_service /System/Library/LaunchDaemons/com.apple.AppleFileServer.plist
 
 if [ "$STRAPPING_SERVER" = true ] ; then
   echo "-----> Disabling screen saver and sleepiness"
@@ -102,11 +87,6 @@ if [ "$STRAPPING_SERVER" = true ] ; then
   defaults write com.apple.loginwindow PowerButtonSleepsSystem -bool no
 fi
 
-#TODO: Make Capslock press Ctrl
-
-echo "-----> Disabling screen lock"
-defaults -currentHost write com.apple.screensaver askForPassword -int 0
-
 echo "-----> Make keyboard faster"
 defaults write NSGlobalDomain KeyRepeat -int 1
 defaults write NSGlobalDomain InitialKeyRepeat -int 10
@@ -114,61 +94,55 @@ defaults write NSGlobalDomain InitialKeyRepeat -int 10
 echo "-----> Enable full keyboard access for all controls (in Keyboard pref pane)"
 defaults write NSGlobalDomain AppleKeyboardUIMode -int 3
 
-echo "-----> Use scroll gesture with the Ctrl (^) modifier key to zoom"
-# defaults write com.apple.universalaccess closeViewScrollWheelToggle -bool true
-# defaults write com.apple.universalaccess HIDScrollZoomModifierMask -int 262144
+# echo "-----> Use scroll gesture with the Ctrl (^) modifier key to zoom"
+defaults write com.apple.universalaccess closeViewScrollWheelToggle -bool true
+defaults write com.apple.universalaccess HIDScrollZoomModifierMask -int 262144
 
-echo "-----> Tweak Finder: Empty trash without prompt, use column view, enable airdrop over ethernet"
+# TODO: Do these work?
+# echo "-----> Tweak Finder: Use column view"
 defaults write com.apple.finder FXPreferredViewStyle -string "clmv"
-defaults write com.apple.finder WarnOnEmptyTrash -bool false
-defaults write com.apple.NetworkBrowser BrowseAllInterfaces -bool true
 
-# Avoid creating .DS_Store files on network volumes
+# Avoid creating .DS_Store files
 defaults write com.apple.desktopservices DSDontWriteNetworkStores -bool true
 
-# Disable disk image verification of dmgs
-defaults write com.apple.frameworks.diskimages skip-verify -bool true
-defaults write com.apple.frameworks.diskimages skip-verify-locked -bool true
-defaults write com.apple.frameworks.diskimages skip-verify-remote -bool true
-
-echo "-----> Customize Safari: Add full url in search bar, developer menu, tab highlights each item"
-# Show the full URL in the address bar (note: this still hides the scheme)
-defaults write com.apple.Safari ShowFullURLInSmartSearchField -bool true
-
+# TODO: Figure out the new way to do this (manually enabling for now)
 # Enable the Develop menu and the Web Inspector in Safari
-defaults write com.apple.Safari IncludeDevelopMenu -bool true
-defaults write com.apple.Safari WebKitDeveloperExtrasEnabledPreferenceKey -bool true
-defaults write com.apple.Safari com.apple.Safari.ContentPageGroupIdentifier.WebKit2DeveloperExtrasEnabled -bool true
+# defaults write com.apple.Safari IncludeDevelopMenu -bool true
+# defaults write com.apple.Safari WebKitDeveloperExtrasEnabledPreferenceKey -bool true
+# defaults write com.apple.Safari com.apple.Safari.ContentPageGroupIdentifier.WebKit2DeveloperExtrasEnabled -bool true
 
+# TODO: Figure out the new way to do this (manually enabling for now)
 # Press Tab to highlight each item on a web page
-defaults write com.apple.Safari WebKitTabToLinksPreferenceKey -bool true
-defaults write com.apple.Safari com.apple.Safari.ContentPageGroupIdentifier.WebKit2TabsToLinks -bool true
+# defaults write com.apple.Safari WebKitTabToLinksPreferenceKey -bool true
+# defaults write com.apple.Safari com.apple.Safari.ContentPageGroupIdentifier.WebKit2TabsToLinks -bool true
 
-echo "-----> Disable auto-correcty stuff"
+# echo "-----> Disable auto-correcty stuff"
 # Disable automatic capitalization
-defaults write NSGlobalDomain NSAutomaticCapitalizationEnabled -bool false
+# defaults write NSGlobalDomain NSAutomaticCapitalizationEnabled -bool false
 
 # Disable smart dashes
-defaults write NSGlobalDomain NSAutomaticDashSubstitutionEnabled -bool false
+# defaults write NSGlobalDomain NSAutomaticDashSubstitutionEnabled -bool false
 
 # Disable automatic period substitution
-defaults write NSGlobalDomain NSAutomaticPeriodSubstitutionEnabled -bool false
+# defaults write NSGlobalDomain NSAutomaticPeriodSubstitutionEnabled -bool false
 
 # Disable smart quotes
-defaults write NSGlobalDomain NSAutomaticQuoteSubstitutionEnabled -bool false
+# defaults write NSGlobalDomain NSAutomaticQuoteSubstitutionEnabled -bool false
 
 # Disable auto-correct
-defaults write NSGlobalDomain NSAutomaticSpellingCorrectionEnabled -bool false
+# defaults write NSGlobalDomain NSAutomaticSpellingCorrectionEnabled -bool false
 
 # Enable automatic updating of apps
-defaults write com.apple.commerce AutoUpdate -bool true
+# defaults write com.apple.commerce AutoUpdate -bool true
 
-echo "-----> Updating system software"
-sudo softwareupdate --install --all 2> >(grep -v "No updates are available") 1> /dev/null
+if [ "$UPDATE_SYSTEM" = true ] ; then
+  echo "-----> Updating system software"
+  sudo softwareupdate --install --all 2> >(grep -v "No updates are available") 1> /dev/null
+fi
 
-if [ ! -x /usr/local/bin/brew ]; then
+if [ ! -x /opt/homebrew/bin/brew ]; then
   echo "-----> Installing homebrew"
-  /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 fi
 
 # Install mas apps
@@ -176,77 +150,116 @@ echo -n "-----> Installing mas (install App Store apps from the command line): "
 brew_install mas
 echo
 
-install_mas_app 497799835 Xcode
-sudo xcodebuild -license accept
 install_cask_app 1password
-install_cask_app carbon-copy-cloner
-install_cask_app google-chrome
-install_cask_app rectangle
-install_mas_app 496437906 Shush
-install_mas_app 1225570693 UlyssesMac
-install_mas_app 411643860 DaisyDisk
-install_mas_app 407963104 Pixelmator
-install_mas_app 432027450 RadarScope
-install_mas_app 1091189122 Bear
 install_mas_app 1440147259 "AdGuard for Safari"
-install_mas_app 924726344 Deliveries
-install_mas_app 1176895641 Spark
-install_mas_app 975937182 "Fantastical 2"
-install_cask_app alfred
-install_cask_app slack
-install_cask_app postico
-install_cask_app league-of-legends
-install_cask_app transmit
-install_cask_app istat-menus
-install_cask_app bitbar
-install_cask_app zoomus
-install_cask_app fluid
+install_mas_app 1487937127 Craft
+install_mas_app 411643860 DaisyDisk
+install_mas_app 1547121417 HomeControl
+install_mas_app 890031187 "Marked 2"
+install_mas_app 1489816366 "Mic Drop"
+install_mas_app 1532419400 MeetingBar
+install_mas_app 1006739057 NepTunes
+install_mas_app 432027450 RadarScope
+install_mas_app 1573461917 "SponsorBlock for YouTube"
+# install_mas_app 1142125928 SecuritySpy # Can't install iOS Apps
+# install_mas_app 522826277 Remind # Can't install iOS Apps
+# install_mas_app 1440147259 "AdGuard for Safari"
+install_cask_app appcleaner
+install_cask_app bartender
+install_cask_app bettertouchtool
+# install_cask_app carbon-copy-cloner # Installer fails; had to manually install
 install_cask_app docker
+install_cask_app downie
+install_cask_app firefox
+install_cask_app google-chrome
+# brew_install homebrew/cask-drivers/logitech-g-hub # Isn't working on M1
+install_cask_app iina
 install_cask_app karabiner-elements
-brew_install homebrew/cask-drivers/logitech-gaming-software
+install_cask_app league-of-legends
+install_cask_app macvim
+install_cask_app parallels
+install_cask_app raycast
+install_cask_app rectangle
+install_cask_app sensei
+install_cask_app shortcat
+install_cask_app slack
+install_cask_app spotify
+install_cask_app stats
+install_cask_app zoom
 
 # Add apps to login items
-osascript -e 'tell application "System Events" to make login item at end with properties {path:"/Applications/Unshaky.app", hidden:false}'
+# osascript -e 'tell application "System Events" to make login item at end with properties {path:"/Applications/Unshaky.app", hidden:false}'
 
-#TODO: Turn off auto correct
-#TODO: Customize dock icons and folders with dockutils
 #TODO: Turn off iTunes track notifications
-#TODO: Add apps to login items: com.apple.loginitems.plist
 #TODO: Configure Terminal.app via plist
 
 echo -n "-----> Installing useful binaries: "
 
-brew_install coreutils                  # GNU core utilities (those that come with OS X are outdated)
+# brew_install coreutils                  # GNU core utilities (those that come with OS X are outdated)
 # brew_install chruby                     # Easily switch between version of ruby
-brew_install ctags                      # For indexing files (vim tab completion of methods, classes, variables)
-brew_install expect                     # Includes unbuffer binary
+# brew_install ctags                      # For indexing files (vim tab completion of methods, classes, variables)
+brew_install dockutil                     # Add/remove items from Dock
+# brew_install expect                     # Includes unbuffer binary
 brew_install fzf                        # Fuzzy finder for zsh and vim
+brew_install gh                         # GitHub CLI
 brew_install git                        # Distributed version control
-brew_install gpg2
-brew_install heroku/brew/heroku         # Recommened way to install heroku command line
-brew_install htop-osx                   # Better top
-brew_install hub
-brew_install imagemagick
-brew_install moreutils                  # Includs ts (timestamp) binary
+brew_install git-lfs                    # Large File Storage in git
+brew_install gpg                        # Needed for installing node via asdf (and signing git commits)
+# brew_install heroku/brew/heroku         # Recommened way to install heroku command line
+# brew_install htop-osx                   # Better top
+# brew_install hub
+# brew_install imagemagick
+brew_install jq                         # Sling JSON around how you want to
+brew_install keybase
+brew_install shared-mime-info           # Needed for the mimemagic Ruby gem
+# brew_install moreutils                  # Includs ts (timestamp) binary
 brew_install neovim                     # Newer, better, faster, stronger vim
-brew_install node                       # JS V8 engine
-brew_install postgresql                 # Realational Database
-# brew_install reattach-to-user-namespace # Reattaches user namespace in tmux  (for pasteboard interaction and ruby motion)
+# brew_install node                       # JS V8 engine
+brew_install postgis                    # Realational Database
+brew_install pure                       # Clean prompt for zsh
+# brew_install reattach-to-user-namespace # Reattaches user namespace in tmux  (for pasteboard interaction)
 brew_install redis                      # Key-value store
-brew_install rename                     # Like mv but better (takes regex)
-brew_install ruby-install               # Helper for chruby to install ruby versions
+# brew_install rename                     # Like mv but better (takes regex)
+# brew_install ruby-install               # Helper for chruby to install ruby versions
 brew_install ripgrep                    # Ripgrep - faster than grep, ack, or ag
 brew_install tmux                       # Terminal multiplexer (for saving project state and switching between projects)
-brew_install tree                       # ASCII view of directory/file structure
-brew_install watch                      # Repeateadly run a command (clearing output between runs)
-brew_install zsh                        # Zsh 5
+# brew_install tree                       # ASCII view of directory/file structure
+# brew_install watch                      # Repeateadly run a command (clearing output between runs)
+# brew_install zsh                        # Zsh 5
 echo
 
 # Start redis and postgres
 brew services start redis
 brew services start postgres
 
-echo "-----> Set default shell to /usr/local/bin/zsh"
-sudo chsh -s /usr/local/bin/zsh $USER
+# echo "-----> Set default shell to /usr/local/bin/zsh"
+# sudo chsh -s /usr/local/bin/zsh $USER
 
-echo "-----> All done. Enjoy your shiny new $COMPUTER_NAME."
+set +e # ignore errors below
+echo "-----> Configuring Menubar and Dock"
+
+# Add seconds to Menubar time
+defaults write com.apple.menuextra.clock "DateFormat" -string "\"EEE d MMM h:mm:ss\""
+
+# Don't show recent apps in Dock
+defaults write com.apple.dock show-recents -bool FALSE
+
+# Put Dock on right
+defaults write com.apple.dock "orientation" -string "right"
+
+# Set dock icon size
+defaults write com.apple.dock "tilesize" -int "48"
+
+# Add/remove apps to/from Dock
+for app in 'Launchpad' 'Maps' 'Photos' 'FaceTime' 'Contacts' 'Notes' 'TV' 'Podcasts' 'News' 'App Store' 'System Preferences'; do
+  dockutil --remove "$app" > /dev/null
+done
+dockutil --add '/Applications/Slack.app' --after 'Mail' > /dev/null
+dockutil --add '/Applications/Craft.app' --after 'Reminders' > /dev/null
+dockutil --add '/Applications/iTerm.app' --after 'Music' > /dev/null
+
+# Cleanup
+rm /tmp/brew_ls
+
+# Goodbye
+echo "-----> All done. Enjoy your shiny new $COMPUTER_NAME_HUMAN."
